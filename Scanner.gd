@@ -42,7 +42,8 @@ func start_scan(addr: String, from: int, to: int, num_threads: int, timeout_phys
 		func() -> void:
 			for thread in threads:
 				thread.wait_to_finish()
-			scan_finished.emit.call_deferred(results)
+			var godot_4_1_workaround := func() -> void: scan_finished.emit(results)
+			godot_4_1_workaround.call_deferred()
 			scan_active = false
 
 			print_verbose('Waiter done')
@@ -71,13 +72,15 @@ func _scan(from: int, to: int, addr: String, timeout_physics_frames: int, output
 			continue
 
 		var semaphore := Semaphore.new()
-		var test := func(s: Semaphore) -> void: s.post()
-
-		for i in timeout_physics_frames:
-			get_tree().physics_frame.connect.call_deferred(
+		var test := (func(s: Semaphore) -> void: s.post())
+		var godot_4_1_workaround := func() -> void:
+			get_tree().physics_frame.connect(
 				test.bind(semaphore),
 				CONNECT_ONE_SHOT
 			)
+
+		for i in timeout_physics_frames:
+			godot_4_1_workaround.call_deferred()
 			semaphore.wait()
 			peer.poll()
 			var status := peer.get_connection_status()
@@ -89,7 +92,8 @@ func _scan(from: int, to: int, addr: String, timeout_physics_frames: int, output
 				if status == MultiplayerPeer.CONNECTION_CONNECTED:
 					print_verbose('PORT OPEN: ', port)
 					peer.close()
-					scan_port_found.emit.call_deferred(port)
+					var _godot_4_1_workaround := (func() -> void: scan_port_found.emit(port))
+					_godot_4_1_workaround.call_deferred(port)
 
 					results_mutex.lock()
 					output.append(port)
